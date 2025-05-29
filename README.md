@@ -1,8 +1,12 @@
 <p align="center">
-  <img alt="wojack-cartoon logo" src="assets/wojack-cartoon.jpeg" height="500" />
+  <img 
+    alt="wojack-cartoon logo" 
+    src="assets/wojack-cartoon.jpeg" 
+    style="max-height: 500px; width: auto; max-width: 100%;" 
+  />
 </p>
 <h3 align="center">golang-bitcoin</h3>
-<p align="center">create/sign <code>golang-bitcoin transaction</code> with golang</p>
+<p align="center">create/sign <code>bitcoin transaction</code> with golang</p>
 
 ---
 
@@ -156,6 +160,23 @@ This project exists solely for the purpose of technical learning and exploration
 ## License
 
 MIT License. See [LICENSE](LICENSE).
+
+---
+
+## Contributing
+
+Contributions are welcome! To contribute:
+
+1. Fork the repo on GitHub (using the webpage interface).
+2. Clone the forked project (`git clone https://github.com/yourname/repo-name.git`).
+3. Navigate to the cloned project (`cd repo-name`)
+4. Create a feature branch (`git checkout -b feature/xxx`).
+5. Stage changes (`git add .`)
+6. Commit changes (`git commit -m "Add feature xxx"`).
+7. Push to the branch (`git push origin feature/xxx`).
+8. Open a pull request on GitHub (on the GitHub webpage).
+
+Please ensure tests pass and include relevant documentation updates.
 
 ---
 
