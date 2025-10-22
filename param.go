@@ -7,23 +7,39 @@ import (
 	"github.com/pkg/errors"
 )
 
-// BitcoinTxParams 这是客户自定义的参数类型，表示要转入和转出的信息
+// BitcoinTxParams represents custom transaction parameters
+// Contains input and output information for BTC node transactions
+// Supports RBF mechanism to prevent transactions from being stuck
+//
+// BitcoinTxParams 代表自定义的交易参数
+// 包含 BTC 节点交易的输入和输出信息
+// 支持 RBF 机制以防止交易长期被卡
 type BitcoinTxParams struct {
-	VinList []VinType //要转入进BTC节点的
-	OutList []OutType //要从BTC节点转出的-这里面通常包含1个目标（转账）和1个自己（找零）
-	RBFInfo RBFConfig //详见RBF机制，通常是需要启用RBF以免交易长期被卡的
+	VinList []VinType // Inputs going into BTC node // 要转入进BTC节点的
+	OutList []OutType // Outputs from BTC node (usually 1 target + 1 change) // 要从BTC节点转出的（通常包含1个目标转账和1个找零）
+	RBFInfo RBFConfig // RBF mechanism config to prevent transaction stuck // RBF机制配置，通常需要启用以免交易长期被卡
 }
 
+// VinType represents transaction input information
+// Contains UTXO details, sender info, amount, and RBF config
+//
+// VinType 代表交易输入信息
+// 包含 UTXO 详情、发送者信息、数量和 RBF 配置
 type VinType struct {
-	OutPoint wire.OutPoint //UTXO的主要信息
-	Sender   AddressTuple  //发送者信息，钱包地址或者公钥文本，二选一填写即可
-	Amount   int64         //发送数量，因为这里不是浮点数，因此很明显这里传的是聪的数量
-	RBFInfo  RBFConfig     //还是RBF机制，前面的是控制整个交易的，这里控制单个UTXO的
+	OutPoint wire.OutPoint // Main UTXO information // UTXO的主要信息
+	Sender   AddressTuple  // Sender info (address or pubkey, choose one) // 发送者信息（钱包地址或公钥文本，二选一填写即可）
+	Amount   int64         // Amount in satoshis (not float) // 发送数量（单位是聪，不是浮点数）
+	RBFInfo  RBFConfig     // RBF config for this specific UTXO // RBF机制（前面控制整个交易，这里控制单个UTXO）
 }
 
+// OutType represents transaction output information
+// Contains recipient info and amount in satoshis
+//
+// OutType 代表交易输出信息
+// 包含接收者信息和聪的数量
 type OutType struct {
-	Target AddressTuple //接收者信息，钱包地址和公钥文本，二选一填写即可
-	Amount int64        //聪的数量
+	Target AddressTuple // Recipient info (address or pubkey, choose one) // 接收者信息（钱包地址或公钥文本，二选一填写即可）
+	Amount int64        // Amount in satoshis // 聪的数量
 }
 
 // CreateTxSignParams 根据用户的输入信息拼接交易

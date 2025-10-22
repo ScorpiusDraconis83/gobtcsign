@@ -1,3 +1,8 @@
+// Package dogecoin provides Dogecoin network configuration parameters
+// Registers Dogecoin MainNet, TestNet, and RegressionNet chain configs
+//
+// dogecoin 包提供狗狗币网络配置参数
+// 注册狗狗币主网、测试网和回归测试网链配置
 package dogecoin
 
 import (
@@ -16,7 +21,11 @@ func init() {
 	}
 }
 
-// MainNetParams returns the chain configuration for mainnet.
+// MainNetParams represents chain configuration for Dogecoin mainnet
+// Includes network magic, address encoding, and HD wallet parameters
+//
+// MainNetParams 代表狗狗币主网的链配置
+// 包含网络标识、地址编码和 HD 钱包参数
 var MainNetParams = chaincfg.Params{
 	Name: "mainnet",
 	Net:  0xc0c0c0c0,
@@ -36,7 +45,11 @@ var MainNetParams = chaincfg.Params{
 	Bech32HRPSegwit: "doge",
 }
 
-// TestNetParams returns the chain configuration for testnet.
+// TestNetParams represents chain configuration for Dogecoin testnet
+// Includes test network magic, address encoding, and HD wallet parameters
+//
+// TestNetParams 代表狗狗币测试网的链配置
+// 包含测试网络标识、地址编码和 HD 钱包参数
 var TestNetParams = chaincfg.Params{
 	Name: "testnet",
 	Net:  0xfcc1b7dc,
@@ -56,7 +69,11 @@ var TestNetParams = chaincfg.Params{
 	Bech32HRPSegwit: "doget",
 }
 
-// RegressionNetParams returns the chain configuration for regression net.
+// RegressionNetParams represents chain configuration for Dogecoin regression testing network
+// Uses custom network magic to avoid collision with Bitcoin RegTest
+//
+// RegressionNetParams 代表狗狗币回归测试网络的链配置
+// 使用自定义网络标识以避免与比特币回归测试网冲突
 var RegressionNetParams = chaincfg.Params{
 	Name: "regtest",
 

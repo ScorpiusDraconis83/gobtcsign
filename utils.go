@@ -15,14 +15,20 @@ import (
 	"github.com/pkg/errors"
 )
 
-// GetTxHash returns the transaction hash from the signed transaction message.
-// GetTxHash 通过签名后的交易信息获得交易哈希
+// GetTxHash returns transaction hash from signed transaction message
+// Extracts hash identifier from MsgTx structure
+//
+// GetTxHash 从签名后的交易消息获得交易哈希
+// 从 MsgTx 结构中提取哈希标识符
 func GetTxHash(msgTx *wire.MsgTx) string {
 	return msgTx.TxHash().String()
 }
 
-// CvtMsgTxToHex converts the Go message body to a hex string used on the BTC chain.
-// CvtMsgTxToHex 把go语言消息体转换为btc链上通用的hex字符串
+// CvtMsgTxToHex converts Go message body to hex string used on BTC chain
+// Serializes transaction to hex format for broadcasting
+//
+// CvtMsgTxToHex 把 Go 语言消息体转换为 BTC 链上通用的 hex 字符串
+// 序列化交易到 hex 格式以便广播
 func CvtMsgTxToHex(msgTx *wire.MsgTx) (string, error) {
 	outTo := bytes.NewBuffer(make([]byte, 0, msgTx.SerializeSize()))
 	if err := msgTx.Serialize(outTo); err != nil {

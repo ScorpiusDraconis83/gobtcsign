@@ -7,15 +7,29 @@ import (
 	"github.com/pkg/errors"
 )
 
+// AddressTuple represents Bitcoin address information
+// Supports both wallet address and public key script formats
+// Either Address or PkScript can be provided (choose one)
+// When both exist, they must match
+//
+// AddressTuple 代表比特币地址信息
+// 支持钱包地址和公钥脚本两种格式
+// Address 或 PkScript 二选一填写即可
+// 当两者同时存在时，需要保证匹配
 type AddressTuple struct {
-	Address  string //钱包地址 和 公钥脚本 二选一填写即可 当 Address 和 PkScript 同时存在时，需要保证匹配
-	PkScript []byte //公钥脚本 和 钱包地址 二选一填写即可 PkScript（Public Key Script）在拼装交易和签名时使用
+	Address  string // Wallet address (choose one with PkScript) // 钱包地址（和公钥脚本二选一填写即可）
+	PkScript []byte // Public key script used in tx assembly and signing // 公钥脚本（在拼装交易和签名时使用）
 }
 
+// NewAddressTuple creates AddressTuple from wallet address
+// PkScript will be derived from address in subsequent logic
+//
+// NewAddressTuple 从钱包地址创建 AddressTuple
+// PkScript 将在后续逻辑中根据地址获得
 func NewAddressTuple(address string) *AddressTuple {
 	return &AddressTuple{
 		Address:  address,
-		PkScript: nil, //这里 address 和 pk-script 是二选一的，因此不设，在后续的逻辑里会根据地址获得 pk-script 信息
+		PkScript: nil, // Address and pk-script are mutually exclusive, pk-script derived later // address 和 pk-script 是二选一的，因此不设，在后续的逻辑里会根据地址获得 pk-script 信息
 	}
 }
 

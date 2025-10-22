@@ -10,11 +10,15 @@ import (
 	"github.com/pkg/errors"
 )
 
-// EstimateTxFee 通过未签名且未找零的交易，预估出需要的费用
-// 代码基本是仿照这里的 github.com/btcsuite/btcwallet/wallet/txauthor@v1.3.4/author.go 里面 NewUnsignedTransaction 的逻辑
-// 具体参考链接在
-// https://github.com/btcsuite/btcwallet/blob/b4ff60753aaa3cf885fb09586755f67d41954942/wallet/txauthor/author.go#L132
-// 由于是计算手续费的，因为这个交易里不应该包含找零的 output 信息，否则结果是无意义的
+// EstimateTxFee estimates required fee through unsigned transaction without change
+// Based on logic from github.com/btcsuite/btcwallet/wallet/txauthor NewUnsignedTransaction
+// Reference: https://github.com/btcsuite/btcwallet/blob/b4ff60753aaa3cf885fb09586755f67d41954942/wallet/txauthor/author.go#L132
+// Transaction should not include change output as fee calculation would be meaningless
+//
+// EstimateTxFee 通过未签名且未找零的交易预估所需费用
+// 基于 github.com/btcsuite/btcwallet/wallet/txauthor NewUnsignedTransaction 的逻辑
+// 参考链接：https://github.com/btcsuite/btcwallet/blob/b4ff60753aaa3cf885fb09586755f67d41954942/wallet/txauthor/author.go#L132
+// 交易里不应该包含找零的 output 信息，否则结果是无意义的
 func EstimateTxFee(param *BitcoinTxParams, netParams *chaincfg.Params, change *ChangeTo, feeRatePerKb btcutil.Amount, dustFee DustFee) (btcutil.Amount, error) {
 	//通过未签名的交易预估出签名后的交易大小，这里预估值会比线上的值略微大些，误差在个位数（具体看vin和out的个数）
 	maxSignedSize, err := EstimateTxSize(param, netParams, change)

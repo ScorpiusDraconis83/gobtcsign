@@ -1,21 +1,21 @@
+[![GitHub Workflow Status (branch)](https://img.shields.io/github/actions/workflow/status/yyle88/gobtcsign/release.yml?branch=main&label=BUILD)](https://github.com/yyle88/gobtcsign/actions/workflows/release.yml?query=branch%3Amain)
+[![GoDoc](https://pkg.go.dev/badge/github.com/yyle88/gobtcsign)](https://pkg.go.dev/github.com/yyle88/gobtcsign)
+[![Coverage Status](https://img.shields.io/coveralls/github/yyle88/gobtcsign/main.svg)](https://coveralls.io/github/yyle88/gobtcsign?branch=main)
+[![Supported Go Versions](https://img.shields.io/badge/Go-1.22--1.25-lightgrey.svg)](https://github.com/yyle88/gobtcsign)
+[![GitHub Release](https://img.shields.io/github/release/yyle88/gobtcsign.svg)](https://github.com/yyle88/gobtcsign/releases)
+[![Go Report Card](https://goreportcard.com/badge/github.com/yyle88/gobtcsign)](https://goreportcard.com/report/github.com/yyle88/gobtcsign)
+
+---
+
 <p align="center">
-  <img 
-    alt="wojack-cartoon logo" 
-    src="assets/wojack-cartoon.jpeg" 
-    style="max-height: 500px; width: auto; max-width: 100%;" 
+  <img
+    alt="wojack-cartoon logo"
+    src="assets/wojack-cartoon.jpeg"
+    style="max-height: 500px; width: auto; max-width: 100%;"
   />
 </p>
 <h3 align="center">golang-bitcoin</h3>
 <p align="center">create/sign <code>bitcoin transaction</code> with golang</p>
-
----
-
-[![GitHub Workflow Status (branch)](https://img.shields.io/github/actions/workflow/status/yyle88/gobtcsign/release.yml?branch=main&label=BUILD)](https://github.com/yyle88/gobtcsign/actions/workflows/release.yml?query=branch%3Amain)
-[![GoDoc](https://pkg.go.dev/badge/github.com/yyle88/gobtcsign)](https://pkg.go.dev/github.com/yyle88/gobtcsign)
-[![Coverage Status](https://img.shields.io/coveralls/github/yyle88/gobtcsign/master.svg)](https://coveralls.io/github/yyle88/gobtcsign?branch=main)
-![Supported Go Versions](https://img.shields.io/badge/Go-1.22%2C%201.23-lightgrey.svg)
-[![GitHub Release](https://img.shields.io/github/release/yyle88/gobtcsign.svg)](https://github.com/yyle88/gobtcsign/releases)
-[![Go Report Card](https://goreportcard.com/badge/github.com/yyle88/gobtcsign)](https://goreportcard.com/report/github.com/yyle88/gobtcsign)
 
 # gobtcsign
 
@@ -25,9 +25,11 @@
 
 ---
 
+<!-- TEMPLATE (EN) BEGIN: LANGUAGE NAVIGATION -->
 ## CHINESE README
 
 [中文说明](README.zh.md)
+<!-- TEMPLATE (EN) END: LANGUAGE NAVIGATION -->
 
 ---
 
@@ -79,7 +81,302 @@ Here are the core features provided by `gobtcsign`:
 
 ## Demos
 
-[BTC-SIGN](internal/demos/signbtc/main/main.go) [DOGECOIN-SIGN](internal/demos/signdoge/main/main.go)
+### Demo 1: Create Bitcoin Wallet
+
+This demo shows how to create a P2WPKH (SegWit) Bitcoin wallet, generate random private keys, and derive addresses.
+
+```go
+// Package main demonstrates P2WPKH wallet creation
+// Generates random private key and derives P2WPKH (SegWit) address
+// Outputs WIF and hex format private keys along with Bitcoin address
+package main
+
+import (
+	"encoding/hex"
+	"fmt"
+	"log"
+
+	"github.com/btcsuite/btcd/btcec/v2"
+	"github.com/btcsuite/btcd/btcutil"
+	"github.com/btcsuite/btcd/chaincfg"
+)
+
+func main() {
+	netParams := &chaincfg.MainNetParams
+
+	// Generate new random private key
+	privateKey, err := btcec.NewPrivateKey()
+	if err != nil {
+		log.Fatalf("random private key error: %v", err)
+	}
+
+	// Encode private key in WIF (Wallet Import Format)
+	privateWif, err := btcutil.NewWIF(privateKey, netParams, true)
+	if err != nil {
+		log.Fatalf("create wallet import format error: %v", err)
+	}
+
+	// Generate public key from private key
+	pubKey := privateWif.PrivKey.PubKey()
+
+	// Calculate public key hash (P2WPKH uses SHA256 + RIPEMD160 hash of public key)
+	pubKeyHash := btcutil.Hash160(pubKey.SerializeCompressed())
+
+	// Create P2WPKH address
+	witnessPubKeyHash, err := btcutil.NewAddressWitnessPubKeyHash(pubKeyHash, netParams)
+	if err != nil {
+		log.Fatalf("create P2WPKH address error: %v", err)
+	}
+
+	fmt.Println("Private Key (WIF):", privateWif.String())
+	fmt.Println("Private Key (Hex):", hex.EncodeToString(privateKey.Serialize()))
+	fmt.Println("P2WPKH Address:", witnessPubKeyHash.EncodeAddress())
+	fmt.Println("Network Name:", netParams.Name)
+}
+```
+
+⬆️ **Source:** [Demo 1 Source Code](internal/demos/demo1x/main.go)
+
+---
+
+### Demo 2: Bitcoin Transaction Signing
+
+This demo demonstrates signing a Bitcoin transaction on TestNet using P2WPKH (SegWit) addresses with RBF support.
+
+```go
+// Package main demonstrates Bitcoin transaction signing on TestNet
+// Shows complete workflow: build transaction, sign, verify, and get hex output
+// Uses P2WPKH (SegWit) address format with RBF support
+package main
+
+import (
+	"fmt"
+
+	"github.com/btcsuite/btcd/chaincfg"
+	"github.com/yyle88/gobtcsign"
+)
+
+func main() {
+	// TestNet sender address and private key
+	// WARNING: Never expose private key unless wallet is disposable
+	const senderAddress = "tb1qvg2jksxckt96cdv9g8v9psreaggdzsrlm6arap"
+	const privateKeyHex = "54bb1426611226077889d63c65f4f1fa212bcb42c2141c81e0c5409324711092"
+
+	netParams := chaincfg.TestNet3Params
+
+	// Build transaction parameters with inputs and outputs
+	param := gobtcsign.BitcoinTxParams{
+		VinList: []gobtcsign.VinType{
+			{
+				OutPoint: *gobtcsign.MustNewOutPoint("e1f05d4ef10d6d4245839364c637cc37f429784883761668978645c67e723919", 2),
+				Sender:   *gobtcsign.NewAddressTuple(senderAddress),
+				Amount:   13089,
+				RBFInfo:  *gobtcsign.NewRBFNotUse(),
+			},
+		},
+		OutList: []gobtcsign.OutType{
+			{
+				Target: *gobtcsign.NewAddressTuple("tb1qk0z8zhsq5hlewplv0039smnz62r2ujscz6gqjx"),
+				Amount: 1234,
+			},
+			{
+				Target: *gobtcsign.NewAddressTuple(senderAddress),
+				Amount: 11855 - 11111,
+			},
+		},
+		RBFInfo: *gobtcsign.NewRBFActive(),
+	}
+
+	// Fee calculation depends on real-time rate and transaction size
+	// Different transactions have different estimates, fee calculation skipped here
+	mustSame(int64(11111), int64(param.GetFee()))
+
+	// Estimate transaction size (slightly larger than actual value)
+	size, err := param.EstimateTxSize(&netParams, gobtcsign.NewNoChange())
+	mustDone(err)
+	fmt.Println("estimate-tx-size:", size)
+
+	// Create transaction ready to sign
+	signParam, err := param.CreateTxSignParams(&netParams)
+	mustDone(err)
+
+	fmt.Println("utxo inputs:", len(signParam.InputOuts))
+
+	// Sign the transaction with private key
+	mustDone(gobtcsign.Sign(senderAddress, privateKeyHex, signParam))
+
+	// Get signed transaction
+	msgTx := signParam.MsgTx
+
+	// Verify signature is valid
+	mustDone(param.VerifyMsgTxSign(msgTx, &netParams))
+	// Check transaction parameters match
+	mustDone(param.CheckMsgTxParam(msgTx, &netParams))
+
+	// Get transaction hash
+	txHash := gobtcsign.GetTxHash(msgTx)
+	fmt.Println("msg-tx-hash:->", txHash, "<-")
+	mustSame("e587e4f65a7fa5dbba6bede6b000e8ece097671bb348db3de0e507c8b36469ad", txHash)
+
+	// Serialize transaction to hex string
+	signedHex, err := gobtcsign.CvtMsgTxToHex(msgTx)
+	mustDone(err)
+	fmt.Println("raw-tx-data:->", signedHex, "<-")
+	mustSame("010000000001011939727ec645869768167683487829f437cc37c664938345426d0df14e5df0e10200000000fdffffff02d204000000000000160014b3c4715e00a5ff9707ec7be2586e62d286ae4a18e80200000000000016001462152b40d8b2cbac358541d850c079ea10d1407f02483045022100e8269080acc14fd24ee13cbbdaa5ea34192f090c917b4ca3da44eda25badd58e02206813da9023bebd556a95e04e6a55c9a5fdf5dfb19746c896d7fd7f26aaa58878012102407ea64d7a9e992028a94481af95ea7d8f54870bd73e5878a014da594335ba3200000000", signedHex)
+
+	// SendRawHexTx(txHex) - Use this hex to broadcast transaction
+	// Transaction already broadcasted, visible on chain
+
+	// Common errors:
+	// "-3: Amount is not a number or string" - Using btcjson.NewSendRawTransactionCmd instead of NewBitcoindSendRawTransactionCmd
+	// "-26: mempool min fee not met" - Node minrelaytxfee setting too high, test nodes should use lower threshold
+	fmt.Println("success")
+}
+
+// After broadcasting transaction - sender account status:
+// CONFIRMED UNSPENT: 1 OUTPUTS (0.00013089 tBTC)
+// UNCONFIRMED TX COUNT: 1
+// UNCONFIRMED RECEIVED: 1 OUTPUTS (0.00000744 tBTC)
+// UNCONFIRMED SPENT: 1 OUTPUTS (0.00013089 tBTC)
+
+// After broadcasting transaction - recipient account status:
+// CONFIRMED UNSPENT: 1 OUTPUTS (0.00003000 tBTC)
+// UNCONFIRMED TX COUNT: 1
+// UNCONFIRMED RECEIVED: 1 OUTPUTS (0.00001234 tBTC)
+
+// Wait for blockchain confirmation - higher fee means faster confirmation
+// Otherwise wait patiently or increase fee by reconstructing transaction
+
+// mustDone panics if error occurs
+func mustDone(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
+// mustSame compares two values and panics if different
+func mustSame[T comparable](want, data T) {
+	if want != data {
+		fmt.Println("want:", want)
+		fmt.Println("data:", data)
+		panic("wrong")
+	}
+}
+```
+
+⬆️ **Source:** [Demo 2 Source Code](internal/demos/demo2x/main.go)
+
+---
+
+### Demo 3: Dogecoin Transaction Signing
+
+This demo demonstrates signing a Dogecoin transaction on TestNet using P2PKH (legacy) addresses with RBF support.
+
+```go
+// Package main demonstrates Dogecoin transaction signing on TestNet
+// Shows complete workflow: build transaction, sign, verify, and get hex output
+// Uses P2PKH (legacy) address format with RBF support
+package main
+
+import (
+	"fmt"
+
+	"github.com/yyle88/gobtcsign"
+	"github.com/yyle88/gobtcsign/dogecoin"
+)
+
+func main() {
+	// Dogecoin TestNet sender address and private key
+	// WARNING: Never expose private key unless wallet is disposable
+	const senderAddress = "nkgVWbNrUowCG4mkWSzA7HHUDe3XyL2NaC"
+	const privateKeyHex = "5f397bc72377b75db7b008a9c3fcd71651bfb138d6fc2458bb0279b9cfc8442a"
+
+	netParams := dogecoin.TestNetParams
+
+	// Build Dogecoin transaction parameters
+	param := gobtcsign.BitcoinTxParams{
+		VinList: []gobtcsign.VinType{
+			{
+				OutPoint: *gobtcsign.MustNewOutPoint(
+					"173d5e1b33fc9adf64cd4b1f3b2ac73acaf0e10c967cd6fa1aa191d817d7ff77",
+					3,
+				),
+				Sender:  *gobtcsign.NewAddressTuple(senderAddress),
+				Amount:  14049272,
+				RBFInfo: *gobtcsign.NewRBFNotUse(),
+			},
+		},
+		OutList: []gobtcsign.OutType{
+			{
+				Target: *gobtcsign.NewAddressTuple("ng4P16anXNUrQw6VKHmoMW8NHsTkFBdNrn"),
+				Amount: 1234567,
+			},
+			{
+				Target: *gobtcsign.NewAddressTuple(senderAddress),
+				Amount: 12814705 - 222222,
+			},
+		},
+		RBFInfo: *gobtcsign.NewRBFActive(),
+	}
+
+	// Fee calculation depends on real-time rate and transaction size
+	// Different transactions have different estimates, fee calculation skipped here
+	mustSame(int64(222222), int64(param.GetFee()))
+
+	// Estimate transaction size (slightly larger than actual value)
+	size, err := param.EstimateTxSize(&netParams, gobtcsign.NewNoChange())
+	mustDone(err)
+	fmt.Println("estimate-tx-size:", size)
+
+	// Create transaction ready to sign
+	signParam, err := param.CreateTxSignParams(&netParams)
+	mustDone(err)
+
+	// Sign the transaction with private key
+	mustDone(gobtcsign.Sign(senderAddress, privateKeyHex, signParam))
+
+	// Get signed transaction
+	msgTx := signParam.MsgTx
+
+	// Verify signature is valid
+	mustDone(param.VerifyMsgTxSign(msgTx, &netParams))
+	// Check transaction parameters match
+	mustDone(param.CheckMsgTxParam(msgTx, &netParams))
+
+	// Get transaction hash
+	txHash := gobtcsign.GetTxHash(msgTx)
+	fmt.Println("msg-tx-hash:->", txHash, "<-")
+	mustSame("d06f0a49c4f18e2aa520eb3bfc961602aa18c811380cb38cae3638c13883f5ed", txHash)
+
+	// Serialize transaction to hex string
+	signedHex, err := gobtcsign.CvtMsgTxToHex(msgTx)
+	mustDone(err)
+	fmt.Println("raw-tx-data:->", signedHex, "<-")
+	mustSame("010000000177ffd717d891a11afad67c960ce1f0ca3ac72a3b1f4bcd64df9afc331b5e3d17030000006a473044022025a41ebdb7d1a5edc5bcdb120ac339591fd95a9a084c8250a362073ffb27575202204579fa82476a52f5a28f605a827ef4866d4ba671c60363f22b523f5c27bf090a012102dfef3896f159dde1c2a972038e06ebc39c551f5f3d45e2fc9544f951fe4282f4fdffffff0287d61200000000001976a9148228d0af289894d419ddcaf6da679d8e9f0f160188ac6325c000000000001976a914b4ddb9db68061a0fec90a4bcaef21f82c8cfa1eb88ac00000000", signedHex)
+
+	// SendRawHexTx(txHex) - Use this hex to broadcast Dogecoin transaction
+	// Transaction already broadcasted, visible on chain
+	fmt.Println("success")
+}
+
+// mustDone panics if error occurs
+func mustDone(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
+// mustSame compares two values and panics if different
+func mustSame[T comparable](want, data T) {
+	if want != data {
+		fmt.Println("want:", want)
+		fmt.Println("data:", data)
+		panic("wrong")
+	}
+}
+```
+
+⬆️ **Source:** [Demo 3 Source Code](internal/demos/demo3x/main.go)
 
 ---
 
@@ -155,42 +452,67 @@ The rise of cryptocurrencies is not the endgame. It is inevitable that new innov
 
 This project exists solely for the purpose of technical learning and exploration. The author of this project maintains a firm and unequivocal stance of *staunch resistance to cryptocurrencies*.
 
---- 
+---
 
-## License
+<!-- TEMPLATE (EN) BEGIN: STANDARD PROJECT FOOTER -->
+<!-- VERSION 2025-09-26 07:39:27.188023 +0000 UTC -->
+
+## 📄 License
 
 MIT License. See [LICENSE](LICENSE).
 
 ---
 
-## Contributing
+## 🤝 Contributing
 
-Contributions are welcome! To contribute:
+Contributions are welcome! Report bugs, suggest features, and contribute code:
 
-1. Fork the repo on GitHub (using the webpage interface).
-2. Clone the forked project (`git clone https://github.com/yourname/repo-name.git`).
-3. Navigate to the cloned project (`cd repo-name`)
-4. Create a feature branch (`git checkout -b feature/xxx`).
-5. Stage changes (`git add .`)
-6. Commit changes (`git commit -m "Add feature xxx"`).
-7. Push to the branch (`git push origin feature/xxx`).
-8. Open a pull request on GitHub (on the GitHub webpage).
+- 🐛 **Found a mistake?** Open an issue on GitHub with reproduction steps
+- 💡 **Have a feature idea?** Create an issue to discuss the suggestion
+- 📖 **Documentation confusing?** Report it so we can improve
+- 🚀 **Need new features?** Share the use cases to help us understand requirements
+- ⚡ **Performance issue?** Help us optimize through reporting slow operations
+- 🔧 **Configuration problem?** Ask questions about complex setups
+- 📢 **Follow project progress?** Watch the repo to get new releases and features
+- 🌟 **Success stories?** Share how this package improved the workflow
+- 💬 **Feedback?** We welcome suggestions and comments
+
+---
+
+## 🔧 Development
+
+New code contributions, follow this process:
+
+1. **Fork**: Fork the repo on GitHub (using the webpage UI).
+2. **Clone**: Clone the forked project (`git clone https://github.com/yourname/repo-name.git`).
+3. **Navigate**: Navigate to the cloned project (`cd repo-name`)
+4. **Branch**: Create a feature branch (`git checkout -b feature/xxx`).
+5. **Code**: Implement the changes with comprehensive tests
+6. **Testing**: (Golang project) Ensure tests pass (`go test ./...`) and follow Go code style conventions
+7. **Documentation**: Update documentation to support client-facing changes and use significant commit messages
+8. **Stage**: Stage changes (`git add .`)
+9. **Commit**: Commit changes (`git commit -m "Add feature xxx"`) ensuring backward compatible code
+10. **Push**: Push to the branch (`git push origin feature/xxx`).
+11. **PR**: Open a merge request on GitHub (on the GitHub webpage) with detailed description.
 
 Please ensure tests pass and include relevant documentation updates.
 
 ---
 
-## Support
+## 🌟 Support
 
-Welcome to contribute to this project by submitting pull requests and reporting issues.
+Welcome to contribute to this project via submitting merge requests and reporting issues.
 
-If you find this package valuable, give me some stars on GitHub! Thank you!!!
+**Project Support:**
 
-**Thank you for your support!**
+- ⭐ **Give GitHub stars** if this project helps you
+- 🤝 **Share with teammates** and (golang) programming friends
+- 📝 **Write tech blogs** about development tools and workflows - we provide content writing support
+- 🌟 **Join the ecosystem** - committed to supporting open source and the (golang) development scene
 
-**Happy Coding with `gobtcsign`!** 🎉
+**Have Fun Coding with this package!** 🎉🎉🎉
 
-Give me stars. Thank you!!!
+<!-- TEMPLATE (EN) END: STANDARD PROJECT FOOTER -->
 
 ---
 

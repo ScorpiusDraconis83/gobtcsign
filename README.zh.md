@@ -1,3 +1,22 @@
+[![GitHub Workflow Status (branch)](https://img.shields.io/github/actions/workflow/status/yyle88/gobtcsign/release.yml?branch=main&label=BUILD)](https://github.com/yyle88/gobtcsign/actions/workflows/release.yml?query=branch%3Amain)
+[![GoDoc](https://pkg.go.dev/badge/github.com/yyle88/gobtcsign)](https://pkg.go.dev/github.com/yyle88/gobtcsign)
+[![Coverage Status](https://img.shields.io/coveralls/github/yyle88/gobtcsign/main.svg)](https://coveralls.io/github/yyle88/gobtcsign?branch=main)
+[![Supported Go Versions](https://img.shields.io/badge/Go-1.22--1.25-lightgrey.svg)](https://github.com/yyle88/gobtcsign)
+[![GitHub Release](https://img.shields.io/github/release/yyle88/gobtcsign.svg)](https://github.com/yyle88/gobtcsign/releases)
+[![Go Report Card](https://goreportcard.com/badge/github.com/yyle88/gobtcsign)](https://goreportcard.com/report/github.com/yyle88/gobtcsign)
+
+---
+
+<p align="center">
+  <img
+    alt="wojack-cartoon logo"
+    src="assets/wojack-cartoon.jpeg"
+    style="max-height: 500px; width: auto; max-width: 100%;"
+  />
+</p>
+<h3 align="center">golang-bitcoin</h3>
+<p align="center">create/sign <code>bitcoin transaction</code> with golang</p>
+
 # gobtcsign
 
 `gobtcsign` 简洁高效的比特币交易签名工具库，帮助开发者快速构建、签名和验证比特币交易。
@@ -6,9 +25,11 @@
 
 ---
 
+<!-- TEMPLATE (ZH) BEGIN: LANGUAGE NAVIGATION -->
 ## 英文文档
 
 [ENGLISH README](README.md)
+<!-- TEMPLATE (ZH) END: LANGUAGE NAVIGATION -->
 
 ---
 
@@ -60,7 +81,302 @@ go get github.com/yyle88/gobtcsign
 
 ## 基本样例
 
-[给比特币签名](internal/demos/signbtc/main/main.go) [给狗狗币签名](internal/demos/signdoge/main/main.go)
+### 样例1：创建比特币钱包
+
+本样例演示如何创建 P2WPKH (SegWit) 比特币钱包，生成随机私钥并派生地址。
+
+```go
+// main 包演示 P2WPKH 钱包创建
+// 生成随机私钥并派生 P2WPKH（SegWit）地址
+// 输出 WIF 和十六进制格式的私钥以及比特币地址
+package main
+
+import (
+	"encoding/hex"
+	"fmt"
+	"log"
+
+	"github.com/btcsuite/btcd/btcec/v2"
+	"github.com/btcsuite/btcd/btcutil"
+	"github.com/btcsuite/btcd/chaincfg"
+)
+
+func main() {
+	netParams := &chaincfg.MainNetParams
+
+	// 创建一个新的随机私钥
+	privateKey, err := btcec.NewPrivateKey()
+	if err != nil {
+		log.Fatalf("random private key error: %v", err)
+	}
+
+	// WIF（Wallet Import Format）私钥编码格式的类型
+	privateWif, err := btcutil.NewWIF(privateKey, netParams, true)
+	if err != nil {
+		log.Fatalf("create wallet import format error: %v", err)
+	}
+
+	// 直接从私钥生成公钥
+	pubKey := privateWif.PrivKey.PubKey()
+
+	// 计算公钥哈希（P2WPKH使用的公钥哈希是公钥的SHA256和RIPEMD160哈希值）
+	pubKeyHash := btcutil.Hash160(pubKey.SerializeCompressed())
+
+	// 创建P2WPKH地址
+	witnessPubKeyHash, err := btcutil.NewAddressWitnessPubKeyHash(pubKeyHash, netParams)
+	if err != nil {
+		log.Fatalf("create P2WPKH address error: %v", err)
+	}
+
+	fmt.Println("Private Key (WIF):", privateWif.String())
+	fmt.Println("Private Key (Hex):", hex.EncodeToString(privateKey.Serialize()))
+	fmt.Println("P2WPKH Address:", witnessPubKeyHash.EncodeAddress())
+	fmt.Println("Network Name:", netParams.Name)
+}
+```
+
+⬆️ **源代码：** [样例1源代码](internal/demos/demo1x/main.go)
+
+---
+
+### 样例2：比特币交易签名
+
+本样例演示在测试网上使用 P2WPKH (SegWit) 地址签名比特币交易，支持 RBF。
+
+```go
+// main 包演示比特币测试网交易签名
+// 展示完整流程：构建交易、签名、验证和获取十六进制输出
+// 使用 P2WPKH（SegWit）地址格式，支持 RBF
+package main
+
+import (
+	"fmt"
+
+	"github.com/btcsuite/btcd/chaincfg"
+	"github.com/yyle88/gobtcsign"
+)
+
+func main() {
+	// 测试网发送者地址和私钥
+	// 警告：不要暴露私钥，除非准备放弃这个钱包
+	const senderAddress = "tb1qvg2jksxckt96cdv9g8v9psreaggdzsrlm6arap"
+	const privateKeyHex = "54bb1426611226077889d63c65f4f1fa212bcb42c2141c81e0c5409324711092"
+
+	netParams := chaincfg.TestNet3Params
+
+	// 构建包含输入和输出的交易参数
+	param := gobtcsign.BitcoinTxParams{
+		VinList: []gobtcsign.VinType{
+			{
+				OutPoint: *gobtcsign.MustNewOutPoint("e1f05d4ef10d6d4245839364c637cc37f429784883761668978645c67e723919", 2),
+				Sender:   *gobtcsign.NewAddressTuple(senderAddress),
+				Amount:   13089,
+				RBFInfo:  *gobtcsign.NewRBFNotUse(),
+			},
+		},
+		OutList: []gobtcsign.OutType{
+			{
+				Target: *gobtcsign.NewAddressTuple("tb1qk0z8zhsq5hlewplv0039smnz62r2ujscz6gqjx"),
+				Amount: 1234,
+			},
+			{
+				Target: *gobtcsign.NewAddressTuple(senderAddress),
+				Amount: 11855 - 11111,
+			},
+		},
+		RBFInfo: *gobtcsign.NewRBFActive(),
+	}
+
+	// 具体费用跟实时费率以及交易体大小有关
+	// 不同的交易有不同的预估值，这里省去预估过程
+	mustSame(int64(11111), int64(param.GetFee()))
+
+	// 估算交易大小（略微大于实际值）
+	size, err := param.EstimateTxSize(&netParams, gobtcsign.NewNoChange())
+	mustDone(err)
+	fmt.Println("estimate-tx-size:", size)
+
+	// 得到待签名的交易
+	signParam, err := param.CreateTxSignParams(&netParams)
+	mustDone(err)
+
+	fmt.Println("utxo inputs:", len(signParam.InputOuts))
+
+	// 使用私钥签名交易
+	mustDone(gobtcsign.Sign(senderAddress, privateKeyHex, signParam))
+
+	// 这是签名后的交易
+	msgTx := signParam.MsgTx
+
+	// 验证签名
+	mustDone(param.VerifyMsgTxSign(msgTx, &netParams))
+	// 比较信息
+	mustDone(param.CheckMsgTxParam(msgTx, &netParams))
+
+	// 获得交易哈希
+	txHash := gobtcsign.GetTxHash(msgTx)
+	fmt.Println("msg-tx-hash:->", txHash, "<-")
+	mustSame("e587e4f65a7fa5dbba6bede6b000e8ece097671bb348db3de0e507c8b36469ad", txHash)
+
+	// 把交易序列化得到十六进制字符串
+	signedHex, err := gobtcsign.CvtMsgTxToHex(msgTx)
+	mustDone(err)
+	fmt.Println("raw-tx-data:->", signedHex, "<-")
+	mustSame("010000000001011939727ec645869768167683487829f437cc37c664938345426d0df14e5df0e10200000000fdffffff02d204000000000000160014b3c4715e00a5ff9707ec7be2586e62d286ae4a18e80200000000000016001462152b40d8b2cbac358541d850c079ea10d1407f02483045022100e8269080acc14fd24ee13cbbdaa5ea34192f090c917b4ca3da44eda25badd58e02206813da9023bebd556a95e04e6a55c9a5fdf5dfb19746c896d7fd7f26aaa58878012102407ea64d7a9e992028a94481af95ea7d8f54870bd73e5878a014da594335ba3200000000", signedHex)
+
+	// SendRawHexTx(txHex) - 通过这个十六进制发送交易
+	// 我已经发完交易，你可以在链上看到它
+
+	// 常见错误：
+	// "-3: Amount is not a number or string" - 使用了 btcjson.NewSendRawTransactionCmd 而非 NewBitcoindSendRawTransactionCmd
+	// "-26: mempool min fee not met" - 节点 minrelaytxfee 设置比较大，测试节点的费用门槛要设置小些
+	fmt.Println("success")
+}
+
+// 发完交易后查发送者的账户信息：
+// CONFIRMED UNSPENT: 1 OUTPUTS (0.00013089 tBTC)
+// UNCONFIRMED TX COUNT: 1
+// UNCONFIRMED RECEIVED: 1 OUTPUTS (0.00000744 tBTC)
+// UNCONFIRMED SPENT: 1 OUTPUTS (0.00013089 tBTC)
+
+// 发完交易后查接收者的账户信息：
+// CONFIRMED UNSPENT: 1 OUTPUTS (0.00003000 tBTC)
+// UNCONFIRMED TX COUNT: 1
+// UNCONFIRMED RECEIVED: 1 OUTPUTS (0.00001234 tBTC)
+
+// 接下来等待链的确认即可，给的手续费越高确认越快
+// 否则就需要耐心等待，或者提高手续费重新构造和发送交易
+
+// mustDone panics if error occurs
+func mustDone(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
+// mustSame compares two values and panics if different
+func mustSame[T comparable](want, data T) {
+	if want != data {
+		fmt.Println("want:", want)
+		fmt.Println("data:", data)
+		panic("wrong")
+	}
+}
+```
+
+⬆️ **源代码：** [样例2源代码](internal/demos/demo2x/main.go)
+
+---
+
+### 样例3：狗狗币交易签名
+
+本样例演示在测试网上使用 P2PKH (传统) 地址签名狗狗币交易，支持 RBF。
+
+```go
+// main 包演示狗狗币测试网交易签名
+// 展示完整流程：构建交易、签名、验证和获取十六进制输出
+// 使用 P2PKH（传统）地址格式，支持 RBF
+package main
+
+import (
+	"fmt"
+
+	"github.com/yyle88/gobtcsign"
+	"github.com/yyle88/gobtcsign/dogecoin"
+)
+
+func main() {
+	// 狗狗币测试网发送者地址和私钥
+	// 警告：不要暴露私钥，除非准备放弃这个钱包
+	const senderAddress = "nkgVWbNrUowCG4mkWSzA7HHUDe3XyL2NaC"
+	const privateKeyHex = "5f397bc72377b75db7b008a9c3fcd71651bfb138d6fc2458bb0279b9cfc8442a"
+
+	netParams := dogecoin.TestNetParams
+
+	// 构建狗狗币交易参数
+	param := gobtcsign.BitcoinTxParams{
+		VinList: []gobtcsign.VinType{
+			{
+				OutPoint: *gobtcsign.MustNewOutPoint(
+					"173d5e1b33fc9adf64cd4b1f3b2ac73acaf0e10c967cd6fa1aa191d817d7ff77",
+					3,
+				),
+				Sender:  *gobtcsign.NewAddressTuple(senderAddress),
+				Amount:  14049272,
+				RBFInfo: *gobtcsign.NewRBFNotUse(),
+			},
+		},
+		OutList: []gobtcsign.OutType{
+			{
+				Target: *gobtcsign.NewAddressTuple("ng4P16anXNUrQw6VKHmoMW8NHsTkFBdNrn"),
+				Amount: 1234567,
+			},
+			{
+				Target: *gobtcsign.NewAddressTuple(senderAddress),
+				Amount: 12814705 - 222222,
+			},
+		},
+		RBFInfo: *gobtcsign.NewRBFActive(),
+	}
+
+	// 具体费用跟实时费率以及交易体大小有关
+	// 不同的交易有不同的预估值，这里省去预估过程
+	mustSame(int64(222222), int64(param.GetFee()))
+
+	// 估算交易大小（略微大于实际值）
+	size, err := param.EstimateTxSize(&netParams, gobtcsign.NewNoChange())
+	mustDone(err)
+	fmt.Println("estimate-tx-size:", size)
+
+	// 得到待签名的交易
+	signParam, err := param.CreateTxSignParams(&netParams)
+	mustDone(err)
+
+	// 使用私钥签名交易
+	mustDone(gobtcsign.Sign(senderAddress, privateKeyHex, signParam))
+
+	// 这是签名后的交易
+	msgTx := signParam.MsgTx
+
+	// 验证签名
+	mustDone(param.VerifyMsgTxSign(msgTx, &netParams))
+	// 比较信息
+	mustDone(param.CheckMsgTxParam(msgTx, &netParams))
+
+	// 获得交易哈希
+	txHash := gobtcsign.GetTxHash(msgTx)
+	fmt.Println("msg-tx-hash:->", txHash, "<-")
+	mustSame("d06f0a49c4f18e2aa520eb3bfc961602aa18c811380cb38cae3638c13883f5ed", txHash)
+
+	// 把交易序列化得到十六进制字符串
+	signedHex, err := gobtcsign.CvtMsgTxToHex(msgTx)
+	mustDone(err)
+	fmt.Println("raw-tx-data:->", signedHex, "<-")
+	mustSame("010000000177ffd717d891a11afad67c960ce1f0ca3ac72a3b1f4bcd64df9afc331b5e3d17030000006a473044022025a41ebdb7d1a5edc5bcdb120ac339591fd95a9a084c8250a362073ffb27575202204579fa82476a52f5a28f605a827ef4866d4ba671c60363f22b523f5c27bf090a012102dfef3896f159dde1c2a972038e06ebc39c551f5f3d45e2fc9544f951fe4282f4fdffffff0287d61200000000001976a9148228d0af289894d419ddcaf6da679d8e9f0f160188ac6325c000000000001976a914b4ddb9db68061a0fec90a4bcaef21f82c8cfa1eb88ac00000000", signedHex)
+
+	// SendRawHexTx(txHex) - 通过这个十六进制发送狗狗币交易
+	// 我已经发完交易，你可以在链上看到它
+	fmt.Println("success")
+}
+
+// mustDone panics if error occurs
+func mustDone(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
+// mustSame compares two values and panics if different
+func mustSame[T comparable](want, data T) {
+	if want != data {
+		fmt.Println("want:", want)
+		fmt.Println("data:", data)
+		panic("wrong")
+	}
+}
+```
+
+⬆️ **源代码：** [样例3源代码](internal/demos/demo3x/main.go)
 
 ---
 
@@ -150,37 +466,68 @@ DOGE纯的模仿BTC的，逻辑99%都是互通的，因此在开发时，测试D
 
 ---
 
-## 许可
+<!-- TEMPLATE (ZH) BEGIN: STANDARD PROJECT FOOTER -->
+<!-- VERSION 2025-09-26 07:39:27.188023 +0000 UTC -->
 
-项目采用 MIT 许可证，详情请参阅 [LICENSE](LICENSE)。
+## 📄 许可证类型
 
----
-
-## 贡献新代码
-
-非常欢迎贡献代码！贡献流程：
-
-1. 在 GitHub 上 Fork 仓库 （通过网页界面操作）。
-2. 克隆Forked项目 (`git clone https://github.com/yourname/repo-name.git`)。
-3. 在克隆的项目里 (`cd repo-name`)
-4. 创建功能分支（`git checkout -b feature/xxx`）。
-5. 添加代码 (`git add .`)。
-6. 提交更改（`git commit -m "添加功能 xxx"`）。
-7. 推送分支（`git push origin feature/xxx`）。
-8. 发起 Pull Request （通过网页界面操作）。
-
-请确保测试通过并更新相关文档。
+MIT 许可证。详见 [LICENSE](LICENSE)。
 
 ---
 
-## 贡献与支持
+## 🤝 项目贡献
 
-欢迎通过提交 pull request 或报告问题来贡献此项目。
+非常欢迎贡献代码！报告 BUG、建议功能、贡献代码：
 
-如果你觉得这个包对你有帮助，请在 GitHub 上给个 ⭐，感谢支持！！！
+- 🐛 **发现问题？** 在 GitHub 上提交问题并附上重现步骤
+- 💡 **功能建议？** 创建 issue 讨论您的想法
+- 📖 **文档疑惑？** 报告问题，帮助我们改进文档
+- 🚀 **需要功能？** 分享使用场景，帮助理解需求
+- ⚡ **性能瓶颈？** 报告慢操作，帮助我们优化性能
+- 🔧 **配置困扰？** 询问复杂设置的相关问题
+- 📢 **关注进展？** 关注仓库以获取新版本和功能
+- 🌟 **成功案例？** 分享这个包如何改善工作流程
+- 💬 **反馈意见？** 欢迎提出建议和意见
 
-**感谢你的支持！**
+---
 
-**祝编程愉快！** 🎉
+## 🔧 代码贡献
 
-Give me stars. Thank you!!!
+新代码贡献，请遵循此流程：
+
+1. **Fork**：在 GitHub 上 Fork 仓库（使用网页界面）
+2. **克隆**：克隆 Fork 的项目（`git clone https://github.com/yourname/repo-name.git`）
+3. **导航**：进入克隆的项目（`cd repo-name`）
+4. **分支**：创建功能分支（`git checkout -b feature/xxx`）
+5. **编码**：实现您的更改并编写全面的测试
+6. **测试**：（Golang 项目）确保测试通过（`go test ./...`）并遵循 Go 代码风格约定
+7. **文档**：为面向用户的更改更新文档，并使用有意义的提交消息
+8. **暂存**：暂存更改（`git add .`）
+9. **提交**：提交更改（`git commit -m "Add feature xxx"`）确保向后兼容的代码
+10. **推送**：推送到分支（`git push origin feature/xxx`）
+11. **PR**：在 GitHub 上打开 Merge Request（在 GitHub 网页上）并提供详细描述
+
+请确保测试通过并包含相关的文档更新。
+
+---
+
+## 🌟 项目支持
+
+非常欢迎通过提交 Merge Request 和报告问题来为此项目做出贡献。
+
+**项目支持：**
+
+- ⭐ **给予星标**如果项目对您有帮助
+- 🤝 **分享项目**给团队成员和（golang）编程朋友
+- 📝 **撰写博客**关于开发工具和工作流程 - 我们提供写作支持
+- 🌟 **加入生态** - 致力于支持开源和（golang）开发场景
+
+**祝你用这个包编程愉快！** 🎉🎉🎉
+
+<!-- TEMPLATE (ZH) END: STANDARD PROJECT FOOTER -->
+
+---
+
+## GitHub 标星点赞
+
+[![Stargazers](https://starchart.cc/yyle88/gobtcsign.svg?variant=adaptive)](https://starchart.cc/yyle88/gobtcsign)
